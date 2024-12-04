@@ -1,5 +1,6 @@
 from collections import defaultdict
 import threading
+import select
 import typing as t
 
 import psycopg2
@@ -13,6 +14,9 @@ from notified.handlers import HandleResult
 from notified.utils import get_connection
 
 
+EMPTY_SELECT = ([], [], [])
+
+
 class Server(LoggerMixin):
     def __init__(self, channel: str, connection_string: str) -> None:
         self.channel = channel
@@ -23,6 +27,7 @@ class Server(LoggerMixin):
         self._handlers: dict[
             str, list[t.Callable[[dict[str, t.Any]], HandleResult]]
         ] = defaultdict(list)
+        self.stopped = False
 
     @property
     def connection(self) -> psycopg2.extensions.connection:
@@ -37,7 +42,7 @@ class Server(LoggerMixin):
 
     def listen(self):
         self.logger.info(f"Running event service on channel '{self.channel}'")
-        for message in self.client.listen():
+        for message in self._run_loop():
             event = self.fetch_event(message)
             self.logger.info(f"Got an event: {event['name']} from message {message}")
             self.handle(event)
@@ -45,6 +50,31 @@ class Server(LoggerMixin):
             f"Client stopped on channel '{self.channel}', closing server connection."
         )
         self.connection.close()
+
+    def _run_loop(self):
+        cursor = self.connection.cursor()
+        cursor.execute(f"LISTEN {self.channel}")
+        self.logger.info(f"Listening on channel '{self.channel}'")
+        while True:
+            if self.stopped:
+                self.logger.info(f"Stopped on channel '{self.channel}'")
+                cursor.execute(f"UNLISTEN {self.channel}")
+                self.connection.close()
+                self.logger.info(f"Connection on channel '{self.channel}' is closed")
+                break
+            if self._channel_is_empty(wait_timeout=config.SELECT_TIMEOUT):
+                self.logger.debug(f"Nothing to read on channel '{self.channel}'")
+                continue
+            self.connection.poll()
+            while self.connection.notifies:
+                message = self.connection.notifies.pop()
+                self.logger.info(
+                    f"Got a message from the '{message.channel}' channel: {message.payload}"
+                )
+                yield message.payload
+
+    def _channel_is_empty(self, wait_timeout: int) -> bool:
+        return select.select([self.connection], [], [], wait_timeout) == EMPTY_SELECT
 
     def fetch_event(self, event_id: str) -> dict[str, t.Any]:
         cursor = self.connection.cursor(cursor_factory=DictCursor)
@@ -74,4 +104,4 @@ class Server(LoggerMixin):
 
     def shutdown(self):
         self.logger.info(f"Shutting down event server on channel '{self.channel}'")
-        self.client.shutdown()
+        self.stopped = True
