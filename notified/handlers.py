@@ -1,12 +1,11 @@
-from http import HTTPStatus
-import logging
-import typing as t
-import enum
 import dataclasses
-
-import urllib.request
+import enum
 import json
+import typing as t
+import urllib.request
+from http import HTTPStatus
 
+from nanos.logging import LoggerMixin
 
 DEFAULT_TIMEOUT = 240
 
@@ -30,11 +29,10 @@ class HandleResult:
         return self.status == HandleStatus.FAILURE
 
 
-class HTTPHandler:  # pylint: disable=too-few-public-methods
+class HTTPHandler(LoggerMixin):  # pylint: disable=too-few-public-methods
     def __init__(self, url: str, method: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         self.url = url
         self.method = method
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.timeout = timeout
 
     def handle(
@@ -56,8 +54,9 @@ class HTTPHandler:  # pylint: disable=too-few-public-methods
                 return HandleResult(
                     status=HandleStatus.FAILURE,
                     payload={
-                        "status_code": response.status_code,
-                        "text": response.text,
+                        "status_code": response.code,
+                        "text": response.read().decode("utf-8"),
                     },
                 )
-            return HandleResult(status=HandleStatus.SUCCESS, payload=response.json())
+            payload = json.loads(response.read().decode("utf-8"))
+            return HandleResult(status=HandleStatus.SUCCESS, payload=payload)

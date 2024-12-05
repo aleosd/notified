@@ -1,20 +1,19 @@
-from collections import defaultdict
-import threading
 import select
+import threading
 import typing as t
+from collections import defaultdict
 
 import psycopg2
+from nanos.logging import LoggerMixin
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
-from nanos.logging import LoggerMixin
 
-from notified.client import NotifyClient
 from notified import config
+from notified.client import NotifyClient
 from notified.handlers import HandleResult
 from notified.utils import get_connection
 
-
-EMPTY_SELECT = ([], [], [])
+EMPTY_SELECT: tuple[list[t.Any], list[t.Any], list[t.Any]] = ([], [], [])
 
 
 class Server(LoggerMixin):
@@ -40,7 +39,7 @@ class Server(LoggerMixin):
     ) -> None:
         self._handlers[event_name].append(handler)
 
-    def listen(self):
+    def listen(self) -> None:
         self.logger.info(f"Running event service on channel '{self.channel}'")
         for message in self._run_loop():
             event = self.fetch_event(message)
@@ -51,7 +50,7 @@ class Server(LoggerMixin):
         )
         self.connection.close()
 
-    def _run_loop(self):
+    def _run_loop(self) -> t.Generator[str, None, None]:
         cursor = self.connection.cursor()
         cursor.execute(f"LISTEN {self.channel}")
         self.logger.info(f"Listening on channel '{self.channel}'")
@@ -102,6 +101,6 @@ class Server(LoggerMixin):
             pkey=sql.Identifier(config.ID_FIELD_NAME),
         )
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.logger.info(f"Shutting down event server on channel '{self.channel}'")
         self.stopped = True
