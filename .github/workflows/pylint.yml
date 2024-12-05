@@ -22,14 +22,14 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.virtualenvs
-        key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}-${{ hashFiles('.github/workflows/verify.yaml') }}-${{ steps.setup-python.outputs.python-version }}
+        key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}-${{ hashFiles('.github/workflows/pylint.yml') }}-${{ steps.setup-python.outputs.python-version }}
 
     - name: Load cached .local
       id: cached-dotlocal
       uses: actions/cache@v4
       with:
         path: ~/.local
-        key: dotlocal-${{ runner.os }}-${{ hashFiles('.github/workflows/verify.yaml') }}-${{ steps.setup-python.outputs.python-version }}
+        key: dotlocal-${{ runner.os }}-${{ hashFiles('.github/workflows/pylint.yml') }}-${{ steps.setup-python.outputs.python-version }}
 
     - name: Install poetry ${{ matrix.poetry-version }}
       if: steps.cached-dotlocal.outputs.cache-hit != 'true'

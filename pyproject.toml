@@ -9,7 +9,7 @@ packages = [{include = "notified"}]
 [tool.poetry.dependencies]
 python = "^3.11"
 psycopg2-binary = "^2.9"
-nanos = "^0.1.4"
+nanos = "^0.1.5"
 
 
 [tool.poetry.group.dev.dependencies]
