@@ -10,7 +10,7 @@ from psycopg2.extras import DictCursor
 
 from notified import config
 from notified.client import NotifyClient
-from notified.handlers import HandleResult
+from notified.handlers import HandlerResult
 from notified.utils import get_connection
 
 EMPTY_SELECT: tuple[list[t.Any], list[t.Any], list[t.Any]] = ([], [], [])
@@ -24,7 +24,7 @@ class Server(LoggerMixin):
 
         self._connection: psycopg2.extensions.connection | None = None
         self._handlers: dict[
-            str, list[t.Callable[[dict[str, t.Any]], HandleResult]]
+            str, list[t.Callable[[dict[str, t.Any]], HandlerResult]]
         ] = defaultdict(list)
         self.stopped = False
 
@@ -35,7 +35,7 @@ class Server(LoggerMixin):
         return self._connection
 
     def register_handler(
-        self, event_name: str, handler: t.Callable[[dict[str, t.Any]], HandleResult]
+        self, event_name: str, handler: t.Callable[[dict[str, t.Any]], HandlerResult]
     ) -> None:
         self._handlers[event_name].append(handler)
 
