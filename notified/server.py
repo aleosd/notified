@@ -1,46 +1,79 @@
-from collections import defaultdict
+import select
 import threading
-import logging
 import typing as t
+from collections import defaultdict
 
 import psycopg2
+from nanos.logging import LoggerMixin
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
 
-from notified.client import NotifyClient
 from notified import config
-from notified.handlers import HandleResult, HandleStatus
+from notified.client import NotifyClient
+from notified.handlers import HandlerResult
+from notified.utils import get_connection
+
+EMPTY_SELECT: tuple[list[t.Any], list[t.Any], list[t.Any]] = ([], [], [])
 
 
-class Server:
+class Server(LoggerMixin):
     def __init__(self, channel: str, connection_string: str) -> None:
         self.channel = channel
         self.connection_string = connection_string
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.client = NotifyClient(self.channel, self.connection_string)
 
         self._connection: psycopg2.extensions.connection | None = None
-        self._handlers: dict[str, list[t.Callable[[dict[str, t.Any]], HandleResult]]] = defaultdict(list)
+        self._handlers: dict[
+            str, list[t.Callable[[dict[str, t.Any]], HandlerResult]]
+        ] = defaultdict(list)
+        self.stopped = False
 
     @property
     def connection(self) -> psycopg2.extensions.connection:
         if self._connection is None:
-            connection = psycopg2.connect(self.connection_string)
-            connection.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-            self._connection = connection
+            self._connection = get_connection(self.connection_string)
         return self._connection
 
-    def register_handler(self, event_name: str, handler: t.Callable[[dict[str, t.Any]], HandleResult]) -> None:
+    def register_handler(
+        self, event_name: str, handler: t.Callable[[dict[str, t.Any]], HandlerResult]
+    ) -> None:
         self._handlers[event_name].append(handler)
 
-    def listen(self):
+    def listen(self) -> None:
         self.logger.info(f"Running event service on channel '{self.channel}'")
-        for message in self.client.listen():
+        for message in self._run_loop():
             event = self.fetch_event(message)
             self.logger.info(f"Got an event: {event['name']} from message {message}")
             self.handle(event)
-        self.logger.info(f"Client stopped on channel '{self.channel}', closing server connection.")
+        self.logger.info(
+            f"Client stopped on channel '{self.channel}', closing server connection."
+        )
         self.connection.close()
+
+    def _run_loop(self) -> t.Generator[str, None, None]:
+        cursor = self.connection.cursor()
+        cursor.execute(f"LISTEN {self.channel}")
+        self.logger.info(f"Listening on channel '{self.channel}'")
+        while True:
+            if self.stopped:
+                self.logger.info(f"Stopped on channel '{self.channel}'")
+                cursor.execute(f"UNLISTEN {self.channel}")
+                self.connection.close()
+                self.logger.info(f"Connection on channel '{self.channel}' is closed")
+                break
+            if self._channel_is_empty(wait_timeout=config.SELECT_TIMEOUT):
+                self.logger.debug(f"Nothing to read on channel '{self.channel}'")
+                continue
+            self.connection.poll()
+            while self.connection.notifies:
+                message = self.connection.notifies.pop()
+                self.logger.info(
+                    f"Got a message from the '{message.channel}' channel: {message.payload}"
+                )
+                yield message.payload
+
+    def _channel_is_empty(self, wait_timeout: int) -> bool:
+        return select.select([self.connection], [], [], wait_timeout) == EMPTY_SELECT
 
     def fetch_event(self, event_id: str) -> dict[str, t.Any]:
         cursor = self.connection.cursor(cursor_factory=DictCursor)
@@ -55,8 +88,11 @@ class Server:
             self.logger.info(f"No handlers defined for event {event_name}")
             return None
         for handler in handlers:
-            self.logger.info(f"Scheduling handler {handler.__name__} for event {event_name}")
+            self.logger.info(
+                f"Scheduling handler {handler.__name__} for event {event_name}"
+            )
             threading.Thread(target=handler, args=(event,)).start()
+        return None
 
     @property
     def query(self) -> sql.Composable:
@@ -65,6 +101,6 @@ class Server:
             pkey=sql.Identifier(config.ID_FIELD_NAME),
         )
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.logger.info(f"Shutting down event server on channel '{self.channel}'")
-        self.client.shutdown()
+        self.stopped = True

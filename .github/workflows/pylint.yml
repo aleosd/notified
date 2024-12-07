@@ -1,6 +1,12 @@
 name: Pylint
 
-on: [push]
+on:
+  push:
+    paths:
+      - "**.py"
+      - "poetry.lock"
+      - ".github/workflows/pylint.yml"
+
 
 jobs:
   build:
@@ -8,16 +14,47 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+        poetry-version: [ "1.8.4" ]
+
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
+      id: setup-python
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+
+    - name: Load cached venv
+      id: cached-dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.virtualenvs
+        key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}-${{ hashFiles('.github/workflows/pylint.yml') }}-${{ steps.setup-python.outputs.python-version }}
+
+    - name: Load cached .local
+      id: cached-dotlocal
+      uses: actions/cache@v4
+      with:
+        path: ~/.local
+        key: dotlocal-${{ runner.os }}-${{ hashFiles('.github/workflows/pylint.yml') }}-${{ steps.setup-python.outputs.python-version }}
+
+    - name: Install poetry ${{ matrix.poetry-version }}
+      if: steps.cached-dotlocal.outputs.cache-hit != 'true'
       run: |
+        python -m ensurepip
         python -m pip install --upgrade pip
-        pip install pylint
+        python -m pip install --user poetry==${{ matrix.poetry-version }}
+
+    - name: Set Poetry config
+      run: |
+        poetry config virtualenvs.in-project false
+        poetry config virtualenvs.path ~/.virtualenvs
+
+    - name: Install dependencies
+      shell: bash
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: python -m poetry install --no-interaction
+
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py')
+        python -m poetry run pylint $(git ls-files '*.py')
