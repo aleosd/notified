@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "**.py"
+      - "poetry.lock"
+      - ".github/workflows/pylint.yml"
 
 
 jobs:
@@ -17,6 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
+      id: setup-python
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
