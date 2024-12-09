@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "notified"
-version = "0.0.1-dev3"
+version = "0.1.0"
 description = "Simple pub/sub implementation using PostgreSQL events."
 authors = ["Alex Osadchuk <alxosd@proton.me>"]
 license = "Apache-2.0"
@@ -9,6 +9,17 @@ repository = "https://github.com/aleosd/notified"
 documentation = "https://github.com/aleosd/notified"
 readme = "README.md"
 packages = [{include = "notified"}]
+classifiers = [
+    "Development Status :: 5 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Database",
+]
+
 
 [tool.poetry.dependencies]
 python = "^3.10"
