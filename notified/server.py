@@ -17,10 +17,16 @@ EMPTY_SELECT: tuple[list[t.Any], list[t.Any], list[t.Any]] = ([], [], [])
 
 
 class Server(LoggerMixin):
-    def __init__(self, channel: str, connection_string: str) -> None:
+    def __init__(
+        self,
+        channel: str,
+        connection_string: str,
+        conf: config.NotifiedConfig | None = None,
+    ) -> None:
         self.channel = channel
         self.connection_string = connection_string
         self.client = NotifyClient(self.channel, self.connection_string)
+        self.config = conf or config.NotifiedConfig.defaults()
 
         self._connection: psycopg2.extensions.connection | None = None
         self._handlers: dict[
@@ -61,7 +67,7 @@ class Server(LoggerMixin):
                 self.connection.close()
                 self.logger.info(f"Connection on channel '{self.channel}' is closed")
                 break
-            if self._channel_is_empty(wait_timeout=config.SELECT_TIMEOUT):
+            if self._channel_is_empty(wait_timeout=self.config.channel_select_timeout):
                 self.logger.debug(f"Nothing to read on channel '{self.channel}'")
                 continue
             self.connection.poll()
@@ -97,8 +103,8 @@ class Server(LoggerMixin):
     @property
     def query(self) -> sql.Composable:
         return sql.SQL("select * from {table} where {pkey} = %s").format(
-            table=sql.Identifier(config.EVENTS_TABLE_NAME),
-            pkey=sql.Identifier(config.ID_FIELD_NAME),
+            table=sql.Identifier(self.config.events_table),
+            pkey=sql.Identifier(self.config.id_field),
         )
 
     def shutdown(self) -> None:
