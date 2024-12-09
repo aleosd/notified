@@ -3,7 +3,7 @@ import logging
 import os
 import typing as t
 
-_ENV_PREFIX = "NOTIFIED_"
+_ENV_PREFIX: t.Final[str] = "NOTIFIED_"
 
 _EVENTS_TABLE_NAME: str = os.getenv(f"{_ENV_PREFIX}EVENTS_TABLE_NAME", "events")
 _ID_FIELD_NAME: str = os.getenv(f"{_ENV_PREFIX}ID_FIELD_NAME", "id")

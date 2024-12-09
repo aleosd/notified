@@ -4,6 +4,11 @@
 functionality. It is designed to handle event notifications using PostgreSQL
 `notify`/`listen` events system.
 
+- [Installation](#installation)
+- [Setup](#setup)
+- [Usage](#usage)
+- [Configuration](#configuration)
+
 ## Installation
 
 ```bash
@@ -92,6 +97,39 @@ CREATE OR REPLACE TRIGGER notify_event
 
 The "subscriber" (or "consumer") part of the workflow is expected to be
 implemented by developers using the library.
+
+## Configuration
+
+There are following configuration options:
+
+- Events table name (default: `events`, environment variable:
+  `NOTIFIED_EVENTS_TABLE_NAME`)
+- ID field name in the events table (default: `id`, environment variable:
+  `NOTIFIED_ID_FIELD_NAME`)
+- Events channel polling timeout (default: 5 second, environment variable:
+  `NOTIFIED_CHANNEL_SELECT_TIMEOUT`)
+
+Each value can be configured either explicitly via code or via environment
+variable. For explicit configuration, see the following example:
+
+```python
+from notified.config import NotifiedConfig
+from notified.server import Server
+
+config = NotifiedConfig(
+    events_table="my_events", 
+    id_field="pk",
+    channel_select_timeout=10
+)
+
+
+server = Server(
+    "events_channel",
+    "postgresql://username:password@localhost:5432/database",
+    conf=config
+)
+server.listen()
+```
 
 ## License
 
