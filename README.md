@@ -2,7 +2,7 @@
 
 **Notified** is highly opinionated python library that provides a pub/sub-like
 functionality. It is designed to handle event notifications using PostgreSQL
-`nottify`/`listen` events system.
+`notify`/`listen` events system.
 
 ## Installation
 

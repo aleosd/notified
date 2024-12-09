@@ -1,13 +1,17 @@
 [tool.poetry]
 name = "notified"
-version = "0.1.1"
-description = ""
-authors = ["Oleskii Osadchul <aleosd@gmail.com>"]
+version = "0.0.1-dev3"
+description = "Simple pub/sub implementation using PostgreSQL events."
+authors = ["Alex Osadchuk <alxosd@proton.me>"]
+license = "Apache-2.0"
+homepage = "https://github.com/aleosd/motified"
+repository = "https://github.com/aleosd/notified"
+documentation = "https://github.com/aleosd/notified"
 readme = "README.md"
 packages = [{include = "notified"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 psycopg2-binary = "^2.9"
 nanos = "^0.1.5"
 

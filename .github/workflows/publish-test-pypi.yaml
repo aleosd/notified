@@ -1,0 +1,44 @@
+name: Publish to Test PYPI
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "1.8.4"
+
+jobs:
+  publish_to_test_pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Load cached .local
+        id: cached-dotlocal
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: dotlocal-${{ runner.os }}-${{ hashFiles('.github/workflows/publish-test-pypi.yaml') }}-${{ steps.setup-python.outputs.python-version }}
+
+      - name: Install poetry ${{ env.POETRY_VERSION }}
+        if: steps.cached-dotlocal.outputs.cache-hit != 'true'
+        run: |
+          python -m ensurepip
+          python -m pip install --upgrade pip
+          python -m pip install --user poetry==${{ env.POETRY_VERSION }}
+
+      - name: Set Poetry config
+        run: |
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.path ~/.virtualenvs
+          poetry config repositories.testpypi https://test.pypi.org/legacy/
+          poetry config pypi-token.testpypi ${{ secrets.TEST_PYPI_API_KEY }}
+      
+      - name: Publish package
+        run: poetry publish --build -r testpypi
