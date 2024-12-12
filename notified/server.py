@@ -48,9 +48,13 @@ class Server(LoggerMixin):
     def listen(self) -> None:
         self.logger.info(f"Running event service on channel '{self.channel}'")
         for message in self._run_loop():
-            event = self.fetch_event(message)
-            self.logger.info(f"Got an event: {event['name']} from message {message}")
-            self.handle(event)
+            if (event := self.fetch_event(message)) is not None:
+                self.logger.info(
+                    f"Got an event: {event['name']} from message {message}"
+                )
+                self.handle(event)
+            else:
+                self.logger.info(f"Skipping message {message}.")
         self.logger.info(
             f"Client stopped on channel '{self.channel}', closing server connection."
         )
@@ -81,11 +85,12 @@ class Server(LoggerMixin):
     def _channel_is_empty(self, wait_timeout: int) -> bool:
         return select.select([self.connection], [], [], wait_timeout) == EMPTY_SELECT
 
-    def fetch_event(self, event_id: str) -> dict[str, t.Any]:
+    def fetch_event(self, event_id: str) -> dict[str, t.Any] | None:
         cursor = self.connection.cursor(cursor_factory=DictCursor)
         cursor.execute(self.query, (event_id,))
         if (db_record := cursor.fetchone()) is None:
-            raise RuntimeError(f"Event {event_id} not found")
+            self.logger.error(f"Event {event_id} not found in the database.")
+            return None
         return dict(db_record)
 
     def handle(self, event: dict[str, t.Any]) -> None:
