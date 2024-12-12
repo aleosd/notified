@@ -10,7 +10,7 @@ documentation = "https://github.com/aleosd/notified"
 readme = "README.md"
 packages = [{include = "notified"}]
 classifiers = [
-    "Development Status :: 5 - Beta",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
